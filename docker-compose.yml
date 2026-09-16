@@ -1,0 +1,35 @@
+services:
+  api:
+    build: .
+    image: turnpike-api
+    ports:
+      # Host port is overridden by the API_PORT environment variable.
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status == 200 else 1)"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 2s
+
+  # One-shot acceptance service: runs the unit suite and end-to-end HTTP
+  # checks against the live API, then exits 0 (accepted) or non-zero.
+  # Kept under the "acceptance" profile so a plain `up` serves only the API;
+  # run it explicitly with `docker compose run --build verify`.
+  verify:
+    image: turnpike-api
+    build: .
+    profiles: ["acceptance"]
+    entrypoint: ["sh", "-c"]
+    command:
+      - "pytest -q && python verify/acceptance.py"
+    environment:
+      BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: "no"
