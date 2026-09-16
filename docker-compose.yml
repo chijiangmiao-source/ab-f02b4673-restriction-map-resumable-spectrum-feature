@@ -5,6 +5,12 @@ services:
     ports:
       # Host port is overridden by the API_PORT environment variable.
       - "${API_PORT:-8000}:8000"
+    environment:
+      # Authenticates resumable enumeration cursors. Cursors survive an API
+      # restart only while this value stays identical; rotating it invalidates
+      # every outstanding cursor (clients safely restart enumeration). Override
+      # API_CURSOR_SECRET for real deployments -- the default is a dev value.
+      TURNPIKE_CURSOR_SECRET: "${API_CURSOR_SECRET:-turnpike-compose-dev-secret}"
     healthcheck:
       test:
         - CMD
@@ -29,6 +35,7 @@ services:
       - "pytest -q && python verify/acceptance.py"
     environment:
       BASE_URL: http://api:8000
+      TURNPIKE_CURSOR_SECRET: "${API_CURSOR_SECRET:-turnpike-compose-dev-secret}"
     depends_on:
       api:
         condition: service_healthy
